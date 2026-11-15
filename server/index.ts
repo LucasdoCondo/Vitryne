@@ -2,9 +2,9 @@ import 'dotenv/config';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { generateCopy } from './copy-service.js';
-import { convertAffiliateUrl } from './link-service.js';
+import { convertAffiliateUrl, ValidationError } from './link-service.js';
 import { getHistory, getSettings, saveHistoryItem, toPublicSettings, updateSettings } from './store.js';
-import { sendTelegramMessage } from './telegram-service.js';
+import { sendTelegramMessage, TelegramApiError } from './telegram-service.js';
 import type { CopyTone, HistoryItem, Marketplace, Settings } from './types.js';
 
 const app = express();
@@ -48,9 +48,17 @@ app.get('/api/history', async (_request, response) => {
 });
 
 app.post('/api/links/convert', async (request, response) => {
-  const conversion = convertAffiliateUrl(asString(request.body?.url), await getSettings());
-  await saveHistoryItem(conversion);
-  response.status(201).json(conversion);
+  try {
+    const conversion = convertAffiliateUrl(asString(request.body?.url), await getSettings());
+    await saveHistoryItem(conversion);
+    response.status(201).json(conversion);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      response.status(400).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 });
 
 app.post('/api/copy/generate', async (request, response) => {
@@ -63,13 +71,20 @@ app.post('/api/copy/generate', async (request, response) => {
     return;
   }
   const settings = await getSettings();
-  const result = await generateCopy({
-    productName: asString(request.body?.productName),
-    affiliateUrl,
-    marketplace,
-    tone,
-    apiKey: settings.geminiApiKey,
-  });
+  let result: Awaited<ReturnType<typeof generateCopy>>;
+  try {
+    result = await generateCopy({
+      productName: asString(request.body?.productName),
+      affiliateUrl,
+      marketplace,
+      tone,
+      apiKey: settings.geminiApiKey,
+    });
+  } catch (error) {
+    console.error('Erro ao gerar copy com o Gemini:', error);
+    response.status(502).json({ error: error instanceof Error && error.message ? `Falha ao gerar a copy: ${error.message}` : 'Falha ao gerar a copy com o Gemini.' });
+    return;
+  }
   const existing = (await getHistory()).find((entry) => entry.id === id);
   const item: HistoryItem = {
     ...(existing ?? {
@@ -109,9 +124,8 @@ app.post('/api/telegram/send', async (request, response) => {
     });
     response.json({ ok: true, sent_at: result.sent_at });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Telegram API')) {
-      const payload = error.toString();
-      response.status(400).json({ error: payload });
+    if (error instanceof TelegramApiError) {
+      response.status(400).json({ error: `Telegram: ${error.message}` });
       return;
     }
 

@@ -1,4 +1,4 @@
-import { BarChart3, Bot, CircleDollarSign, Command, Copy, Link2, Send, Zap } from 'lucide-react';
+import { BarChart3, CircleDollarSign, Link2, Send, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { CopyStudio } from './components/copy-studio';
 import { HistoryPanel } from './components/history-panel';

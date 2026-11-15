@@ -30,15 +30,9 @@ export interface HistoryItem extends LinkConversion {
   copy?: string;
   tone?: CopyTone;
 }
-  productName?: string;
-  copy?: string;
-  tone?: CopyTone;
-}
-  productName?: string;
-  copy?: string;
-  tone?: CopyTone;
 
-
+export interface BotSession {
+  botToken: string;
   authorizedAt: number;
 }
 
@@ -46,11 +40,4 @@ export interface TelegramErrorResponse {
   description?: string;
   error_message?: string;
   code?: number;
-}
-  description?: string;
-  error_message?: string;
-  code?: number;
-}
-
-
 }

@@ -1,5 +1,5 @@
 import { ClipboardPaste, Link2, RotateCcw, Sparkles } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button, FieldLabel, Panel } from './ui';
 
 interface LinkConverterProps {
@@ -12,12 +12,21 @@ interface LinkConverterProps {
 }
 
 export function LinkConverter({ value, onChange, onConvert, loading, autoPaste, onAutoPasteChange }: LinkConverterProps) {
+  // Guardamos o último link lido do clipboard para só preencher o campo quando ele for NOVO.
+  // Antes, qualquer edição/limpeza do campo era sobrescrita de volta pelo clipboard.
+  const lastClipboard = useRef('');
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   useEffect(() => {
     if (!autoPaste) return;
     const syncClipboard = async () => {
       try {
-        const clipboardText = await navigator.clipboard.readText();
-        if (/^https?:\/\//i.test(clipboardText.trim()) && clipboardText.trim() !== value) onChange(clipboardText.trim());
+        const text = (await navigator.clipboard.readText()).trim();
+        if (/^https?:\/\//i.test(text) && text !== lastClipboard.current) {
+          lastClipboard.current = text;
+          onChangeRef.current(text);
+        }
       } catch {
         // Clipboard permissions are optional; manual paste remains available.
       }
@@ -25,7 +34,7 @@ export function LinkConverter({ value, onChange, onConvert, loading, autoPaste, 
     void syncClipboard();
     window.addEventListener('focus', syncClipboard);
     return () => window.removeEventListener('focus', syncClipboard);
-  }, [autoPaste, onChange, value]);
+  }, [autoPaste]);
 
   const paste = async () => {
     try {

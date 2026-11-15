@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { LinkConversion, Marketplace, Settings } from './types.js';
 
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 function identifyMarketplace(hostname: string): Marketplace {
   if (hostname.includes('shopee.')) return 'shopee';
   if (hostname.includes('mercadolivre.') || hostname.includes('mercadolibre.')) return 'mercado_livre';
@@ -12,12 +19,16 @@ export function convertAffiliateUrl(rawUrl: string, settings: Settings): LinkCon
   try {
     url = new URL(rawUrl.trim());
   } catch {
-    throw new Error('Cole uma URL completa e válida do produto.');
+    throw new ValidationError('Cole uma URL completa e válida do produto.');
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new ValidationError('Cole uma URL completa e válida do produto.');
   }
 
   const marketplace = identifyMarketplace(url.hostname.toLowerCase());
   if (marketplace === 'unknown') {
-    throw new Error('Reconhecemos apenas links da Shopee e do Mercado Livre.');
+    throw new ValidationError('Reconhecemos apenas links da Shopee e do Mercado Livre.');
   }
 
   if (marketplace === 'shopee' && settings.shopeeTrackingId) {

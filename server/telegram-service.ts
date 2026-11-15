@@ -26,7 +26,7 @@ export function normalizeTelegramErrorPayload(payload: unknown): { code?: number
 
   const candidate = payload as Record<string, unknown>;
   return {
-    code: typeof candidate.code === 'number' ? candidate.code : undefined,
+    code: typeof candidate.error_code === 'number' ? candidate.error_code : typeof candidate.code === 'number' ? candidate.code : undefined,
     description: typeof candidate.description === 'string' ? candidate.description : undefined,
     error_message: typeof candidate.error_message === 'string' ? candidate.error_message : undefined,
   };
@@ -67,20 +67,32 @@ export async function sendTelegramMessage(request: SendTelegramMessageRequest): 
   const { botToken, chatId, text } = request;
   const session = await getSession(botToken);
 
-  const response = await fetch(`https://api.telegram.org/bot${session.botToken}/sendMessage`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
-  });
+  const url = `https://api.telegram.org/bot${session.botToken}/sendMessage`;
 
-  const payload = (await response.json().catch(() => null)) as unknown;
+  const post = async (parseMode?: 'Markdown') => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, ...(parseMode ? { parse_mode: parseMode } : {}) }),
+    });
+    const payload = (await response.json().catch(() => null)) as unknown;
+    return { response, payload };
+  };
+
+  let { response, payload } = await post('Markdown');
+
+  // Textos gerados por IA podem ter _ ou * sem par, que o Markdown do Telegram rejeita.
+  // Nesse caso reenviamos como texto simples em vez de falhar o disparo.
+  if (!response.ok && normalizeTelegramErrorPayload(payload).description?.toLowerCase().includes("can't parse entities")) {
+    ({ response, payload } = await post());
+  }
 
   if (!response.ok) {
     const errorPayload = normalizeTelegramErrorPayload(payload);
     throw new TelegramApiError(errorPayload, new Error(`Telegram returned ${response.status}`));
   }
 
-  if (response.status === 200 && (payload === null || typeof payload !== 'object' || (payload as Record<string, unknown>).ok !== true)) {
+  if (payload === null || typeof payload !== 'object' || (payload as Record<string, unknown>).ok !== true) {
     throw new TelegramApiError({ description: 'Resposta inesperada do Telegram.' });
   }
 
