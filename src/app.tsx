@@ -1,18 +1,37 @@
-import { BarChart3, CircleDollarSign, Link2, Send, Zap } from 'lucide-react';
+import { BarChart3, Bell, ChevronDown, CircleDollarSign, Link2, Send, UserRound, Volume2, VolumeX, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { CopyStudio } from './components/copy-studio';
+import { CampaignsPanel } from './components/campaigns-panel';
 import { HistoryPanel } from './components/history-panel';
 import { LinkConverter } from './components/link-converter';
+import { OverviewDashboard } from './components/overview-dashboard';
 import { SettingsPanel } from './components/settings-panel';
 import { Sidebar } from './components/sidebar';
 import { Button, Panel, Toasts } from './components/ui';
 import { api } from './lib/api';
+import { installSoundUnlock, isSoundEnabled, playSound, setSoundEnabled, subscribeSound } from './lib/sound';
 import type { CopyTone, HealthStatus, HistoryItem, LinkConversion, PublicSettings, SettingsForm, ToastMessage, WorkspaceSection } from './types';
 
-const blankForm: SettingsForm = { shopeeTrackingId: '', mercadoLivreTag: '', geminiApiKey: '', telegramBotToken: '', telegramChatId: '' };
+const blankForm: SettingsForm = {
+  shopeeTrackingId: '',
+  mercadoLivreTag: '',
+  anthropicApiKey: '',
+  openAiApiKey: '',
+  geminiApiKey: '',
+  groqApiKey: '',
+  telegramBotToken: '',
+  telegramChatId: '',
+  amazonTag: '',
+  automationEnabled: false,
+  telegramAutomationEnabled: false,
+  metaAutomationEnabled: false,
+  automationDailyLimit: 10,
+  automationKillSwitch: false,
+};
 
 export default function App() {
-  const [active, setActive] = useState<WorkspaceSection>('workspace');
+  const [active, setActive] = useState<WorkspaceSection>('overview');
+  const [profileOpen, setProfileOpen] = useState(false);
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [settingsForm, setSettingsForm] = useState<SettingsForm>(blankForm);
@@ -29,11 +48,21 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [flash, setFlash] = useState<{ id: number; type: 'success' | 'error' } | null>(null);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
+
+  useEffect(() => installSoundUnlock(), []);
+  useEffect(() => subscribeSound(setSoundOn), []);
 
   const toast = useCallback((title: string, type: ToastMessage['type'] = 'success', description?: string) => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts((items) => [...items, { id, title, type, description }]);
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4200);
+    playSound(type);
+    if (type !== 'info') {
+      setFlash({ id, type });
+      window.setTimeout(() => setFlash((current) => (current?.id === id ? null : current)), 800);
+    }
   }, []);
 
   const refreshData = useCallback(async () => {
@@ -41,7 +70,7 @@ export default function App() {
       const [nextHealth, nextSettings, nextHistory] = await Promise.all([api.health(), api.settings(), api.history()]);
       setHealth(nextHealth);
       setSettings(nextSettings);
-      setSettingsForm((current) => ({ ...current, shopeeTrackingId: nextSettings.shopeeTrackingId, mercadoLivreTag: nextSettings.mercadoLivreTag, telegramChatId: nextSettings.telegramChatId }));
+      setSettingsForm((current) => ({ ...current, shopeeTrackingId: nextSettings.shopeeTrackingId, mercadoLivreTag: nextSettings.mercadoLivreTag, telegramChatId: nextSettings.telegramChatId, amazonTag: nextSettings.amazonTag, automationEnabled: nextSettings.automationEnabled, telegramAutomationEnabled: nextSettings.telegramAutomationEnabled, metaAutomationEnabled: nextSettings.metaAutomationEnabled, automationDailyLimit: nextSettings.automationDailyLimit, automationKillSwitch: nextSettings.automationKillSwitch }));
       setHistory(nextHistory);
     } catch {
       setHealth(null);
@@ -98,9 +127,15 @@ export default function App() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const next = await api.saveSettings(settingsForm);
+      const payload: Partial<SettingsForm> = { ...settingsForm };
+      if (settings?.hasAnthropicApiKey && !payload.anthropicApiKey) delete payload.anthropicApiKey;
+      if (settings?.hasOpenAiApiKey && !payload.openAiApiKey) delete payload.openAiApiKey;
+      if (settings?.hasGeminiApiKey && !payload.geminiApiKey) delete payload.geminiApiKey;
+      if (settings?.hasGroqApiKey && !payload.groqApiKey) delete payload.groqApiKey;
+      if (settings?.hasTelegramBotToken && !payload.telegramBotToken) delete payload.telegramBotToken;
+      const next = await api.saveSettings(payload);
       setSettings(next);
-      setSettingsForm({ ...blankForm, shopeeTrackingId: next.shopeeTrackingId, mercadoLivreTag: next.mercadoLivreTag, telegramChatId: next.telegramChatId });
+      setSettingsForm({ ...blankForm, shopeeTrackingId: next.shopeeTrackingId, mercadoLivreTag: next.mercadoLivreTag, telegramChatId: next.telegramChatId, amazonTag: next.amazonTag, automationEnabled: next.automationEnabled, telegramAutomationEnabled: next.telegramAutomationEnabled, metaAutomationEnabled: next.metaAutomationEnabled, automationDailyLimit: next.automationDailyLimit, automationKillSwitch: next.automationKillSwitch });
       const nextHealth = await api.health();
       setHealth(nextHealth);
       toast('Conexões salvas localmente', 'success', 'O Vitryne já pode usar suas novas credenciais.');
@@ -119,22 +154,43 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-canvas text-zinc-100 selection:bg-neon/25 selection:text-white lg:flex">
-      <div className="pointer-events-none fixed inset-0 cyber-grid opacity-40" />
+    <div className="min-h-screen bg-canvas text-slate-100 selection:bg-cyan/25 selection:text-white lg:flex">
       <Sidebar active={active} onNavigate={setActive} health={health} />
       <main className="relative min-w-0 flex-1">
-        <header className="flex h-[74px] items-center justify-between border-b border-white/[.065] px-5 sm:px-8">
-          <div className="flex items-center gap-3"><span className="hidden text-[11px] font-bold uppercase tracking-[.17em] text-zinc-600 sm:inline">Command center</span><span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:inline" /><span className="text-xs text-zinc-500">{active === 'workspace' ? 'Criar campanha' : active === 'history' ? 'Biblioteca de campanhas' : active === 'settings' ? 'Configuração segura' : 'Canal de disparo'}</span></div>
-          <div className="flex items-center gap-2 rounded-full border border-white/[.075] bg-white/[.025] px-3 py-1.5"><span className={`h-1.5 w-1.5 rounded-full ${health?.online ? 'bg-neon shadow-[0_0_8px_#a3ff5d]' : 'bg-amber-300'}`} /><span className="text-[10px] font-semibold text-zinc-500">{health?.online ? 'LOCAL ONLINE' : 'API OFFLINE'}</span></div>
+        <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-cyan/[.1] bg-[#081329]/55 px-4 backdrop-blur-2xl sm:px-7">
+          <div className="flex items-center gap-6">
+            <div className="hidden items-center gap-2.5 sm:flex lg:hidden"><span className="grid h-8 w-8 place-items-center rounded-lg border border-cyan/25 bg-cyan/[.08] text-cyan"><Zap className="h-4 w-4" /></span><span className="font-semibold tracking-tight text-white">vitryne</span></div>
+            <nav aria-label="Navegação principal" className="flex items-center gap-1">
+              {([{ id: 'overview', label: 'Overview' }, { id: 'history', label: 'Reports' }, { id: 'settings', label: 'Settings' }] as const).map((item) => {
+                const selected = active === item.id || (item.id === 'history' && active === 'history');
+                return <button key={item.id} onClick={() => setActive(item.id)} className={`relative px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${selected ? 'text-cyan' : 'text-slate-400 hover:text-white'}`}>{item.label}{selected && <span className="absolute inset-x-3 -bottom-[17px] h-[2px] rounded-full bg-cyan shadow-[0_0_10px_#00f0ff]" />}</button>;
+              })}
+            </nav>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className={`hidden items-center gap-2 rounded-full border border-cyan/[.13] bg-cyan/[.04] px-3 py-1.5 text-[10px] font-semibold sm:inline-flex ${health?.online ? 'text-cyan' : 'text-amber-200'}`}><span className={`h-1.5 w-1.5 rounded-full ${health?.online ? 'bg-cyan shadow-[0_0_8px_#00f0ff]' : 'bg-amber-300'}`} />{health?.online ? 'LOCAL ONLINE' : 'API OFFLINE'}</span>
+            <button onClick={() => setSoundEnabled(!soundOn)} className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-white/[.05] hover:text-cyan" aria-label={soundOn ? 'Desligar sons' : 'Ligar sons'} aria-pressed={soundOn} title={soundOn ? 'Sons ligados' : 'Sons desligados'}>{soundOn ? <Volume2 className="h-[17px] w-[17px]" /> : <VolumeX className="h-[17px] w-[17px]" />}</button>
+            <button onClick={() => toast('Tudo em dia', 'info', 'Você não tem notificações novas.')} className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-white/[.05] hover:text-cyan" aria-label="Notificações"><Bell className="h-[17px] w-[17px]" /></button>
+            <div className="relative">
+              <button onClick={() => setProfileOpen((open) => !open)} className="flex items-center gap-2 rounded-xl border border-cyan/[.12] bg-white/[.025] p-1.5 pr-2.5 transition hover:border-cyan/25" aria-expanded={profileOpen} aria-label="Menu de perfil">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-cyan/30 to-blue/30 text-cyan"><UserRound className="h-4 w-4" /></span>
+                <span className="hidden text-xs font-medium text-slate-200 sm:inline">Perfil</span><ChevronDown className="hidden h-3.5 w-3.5 text-slate-500 sm:block" />
+              </button>
+              {profileOpen && <div className="absolute right-0 top-12 w-48 rounded-xl border border-cyan/[.16] bg-[#0d1a33]/70 p-2 shadow-[0_14px_45px_rgba(0,0,0,.4)] backdrop-blur-2xl"><p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ambiente local</p><button onClick={() => { setActive('settings'); setProfileOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-white/[.05]">Preferências da conta</button></div>}
+            </div>
+          </div>
         </header>
-        <div className="mx-auto max-w-[1450px] p-5 sm:p-8">
+        <div className="mx-auto max-w-[1680px] p-4 sm:p-7 xl:p-8">
+          {active === 'overview' && <OverviewDashboard onCreateCampaign={() => setActive('workspace')} onNavigateSettings={() => setActive('settings')} settings={settings} onToast={toast} />}
           {active === 'workspace' && <Workspace url={url} setUrl={setUrl} autoPaste={autoPaste} setAutoPaste={setAutoPaste} converting={converting} convert={convert} conversion={conversion} productName={productName} setProductName={setProductName} tone={tone} setTone={setTone} copy={copy} generateCopy={generateCopy} generating={generating} copyText={copyText} send={send} sending={sending} copied={copied} aiEnabled={Boolean(settings?.hasGeminiApiKey)} history={history} reuse={reuse} />}
+          {active === 'campaigns' && <CampaignsPanel onToast={toast} />}
           {active === 'history' && <HistoryPanel items={history} onReuse={reuse} onCopy={copyText} />}
           {active === 'settings' && <SettingsPanel form={settingsForm} publicSettings={settings} onChange={(field, value) => setSettingsForm((current) => ({ ...current, [field]: value }))} onSave={saveSettings} saving={saving} />}
           {active === 'automation' && <Automation copy={copy} telegramConfigured={Boolean(health?.services.telegram)} onNavigate={setActive} onSend={send} sending={sending} />}
         </div>
       </main>
       <Toasts toasts={toasts} />
+      {flash && <div key={flash.id} aria-hidden="true" className={`pointer-events-none fixed inset-0 z-40 ${flash.type === 'error' ? 'fx-flash-error' : 'fx-flash-success'}`} />}
     </div>
   );
 }

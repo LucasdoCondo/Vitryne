@@ -1,18 +1,96 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  html { background: #08090d; }
-  body { margin: 0; min-width: 320px; min-height: 100vh; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; background: #08090d; }
+  html { background: #060b19; }
+  body { margin: 0; min-width: 320px; min-height: 100vh; font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: radial-gradient(ellipse 75% 55% at 54% -15%, rgba(41,121,255,.12), transparent 70%), radial-gradient(ellipse 55% 40% at 100% 50%, rgba(0,240,255,.035), transparent 75%), radial-gradient(circle at 10% 22%, rgba(0,240,255,.13), transparent 34%), radial-gradient(circle at 90% 34%, rgba(139,124,255,.12), transparent 36%), radial-gradient(circle at 52% 96%, rgba(41,121,255,.14), transparent 40%), #060b19; background-attachment: fixed; color: #fff; }
   button, input { font: inherit; }
 }
 
 @layer utilities {
-  .cyber-grid { background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px), radial-gradient(ellipse 60% 50% at 70% 0%, rgba(129, 107, 255, .06), transparent); background-size: 48px 48px, 48px 48px, auto; mask-image: linear-gradient(to bottom, black, transparent 78%); }
   .animate-enter { animation: enter .28s cubic-bezier(.22, 1, .36, 1) both; }
+}
+
+.glass-panel {
+  border-color: rgba(0,229,255,.16);
+  background: linear-gradient(145deg, rgba(13,25,56,.52), rgba(13,25,56,.34));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 12px 36px rgba(0,0,0,.14);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  transition: border-color .25s ease, box-shadow .25s ease, background .25s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(0,229,255,.26);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 22px rgba(0,229,255,.06), 0 14px 38px rgba(0,0,0,.18);
+}
+
+/* Campos e prévias dentro dos cards também ficam translúcidos (mesma cor, menos opaca). */
+.glass-panel .bg-\[\#090b10\] { background-color: rgba(9,11,16,.5); }
+.glass-panel .bg-\[\#090b10\]:focus { background-color: rgba(9,11,16,.68); }
+
+/* Navegadores sem backdrop-filter: volta a um fundo mais sólido para manter a leitura. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-panel { background: rgba(13,25,56,.88); }
+  .glass-panel .bg-\[\#090b10\] { background-color: rgba(9,11,16,.9); }
+}
+
+.kpi-card {
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.kpi-card:hover {
+  border-color: rgba(0,229,255,.32);
+  box-shadow: 0 0 20px rgba(0,229,255,.08), 0 16px 38px rgba(0,0,0,.18);
+  transform: translateY(-2px);
+}
+
+.chart-panel {
+  border-color: rgba(0,229,255,.34);
+  box-shadow: 0 0 0 1px rgba(0,229,255,.06), 0 0 25px rgba(0,229,255,.08), 0 16px 42px rgba(0,0,0,.18);
+}
+
+.donut-chart {
+  background: conic-gradient(#00f0ff 0 48%, #2979ff 48% 80%, #8b7cff 80% 100%);
+  box-shadow: 0 0 24px rgba(0,240,255,.13);
+}
+
+.world-map {
+  background: radial-gradient(ellipse at 60% 47%, rgba(41,121,255,.08), transparent 55%);
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 75%, transparent);
+}
+
+@layer utilities {
+  .animate-shake { animation: shake .46s cubic-bezier(.36,.07,.19,.97) both; }
+  .animate-pop { animation: pop .42s cubic-bezier(.22, 1, .36, 1) both; }
+  .fx-flash-success { animation: flash-success .7s ease-out both; }
+  .fx-flash-error { animation: flash-error .75s ease-out both; }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+
+@keyframes pop {
+  0% { opacity: 0; transform: translateY(8px) scale(.94); }
+  60% { opacity: 1; transform: translateY(0) scale(1.025); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Brilho suave nas bordas da tela: ciano para sucesso, rosa/vermelho para falha. */
+@keyframes flash-success { 0% { box-shadow: inset 0 0 0 0 rgba(0,240,255,0); } 25% { box-shadow: inset 0 0 90px 6px rgba(0,240,255,.16); } 100% { box-shadow: inset 0 0 0 0 rgba(0,240,255,0); } }
+@keyframes flash-error { 0% { box-shadow: inset 0 0 0 0 rgba(251,113,133,0); } 25% { box-shadow: inset 0 0 100px 8px rgba(251,113,133,.2); } 100% { box-shadow: inset 0 0 0 0 rgba(251,113,133,0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shake, .animate-pop, .animate-enter { animation: none; }
+  .fx-flash-success, .fx-flash-error { animation-duration: .01ms; }
+  .glass-panel, .kpi-card { transition: none; }
 }
 
 @keyframes enter { from { opacity: 0; transform: translateY(7px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }

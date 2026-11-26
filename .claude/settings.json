@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": { "tool": "Edit", "filePattern": "**/*.{ts,tsx,js}" },
+        "command": "npm run typecheck -- --pretty false"
+      },
+      {
+        "matcher": { "tool": "Write", "filePattern": "**/*.{ts,tsx,js}" },
+        "command": "npm run typecheck -- --pretty false"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": { "tool": ["Edit", "Write"], "filePattern": ["**/.env*", "**/.vitryne/**", "*secret*", "*key*", "*token*"] },
+        "command": "echo 'Bloqueado: edição de arquivo de segredo/configuração sensível.' && exit 1"
+      }
+    ]
+  },
+  "permissions": {
+    "allow": ["npm run *", "git diff", "git status", "git log"],
+    "deny": ["rm -rf", "git push --force", "cat .env", "read .env"]
+  }
+}

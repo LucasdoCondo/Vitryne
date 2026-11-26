@@ -3,12 +3,13 @@ import { cva } from 'class-variance-authority';
 import { CheckCircle2, CircleAlert, Info, LoaderCircle } from 'lucide-react';
 import type { ToastMessage } from '../types';
 import { cn } from '../lib/utils';
+import { playSound } from '../lib/sound';
 
-const buttonVariants = cva('inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45', {
+const buttonVariants = cva('inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-45', {
   variants: {
     variant: {
-      primary: 'bg-neon text-[#0a1006] hover:bg-[#b5ff7e] shadow-[0_0_24px_rgba(163,255,93,.18)]',
-      secondary: 'bg-white/[.07] text-white border border-white/[.11] hover:bg-white/[.11]',
+      primary: 'bg-cyan text-[#061326] hover:bg-[#79f7ff] shadow-[0_0_22px_rgba(0,240,255,.16)]',
+      secondary: 'bg-cyan/[.045] text-slate-100 border border-cyan/[.16] hover:bg-cyan/[.09] hover:border-cyan/30',
       ghost: 'bg-transparent text-zinc-400 hover:text-white hover:bg-white/[.05]',
       danger: 'bg-rose-400/10 text-rose-300 border border-rose-400/20 hover:bg-rose-400/15',
     },
@@ -22,11 +23,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 }
 
-export function Button({ children, className = '', loading = false, variant = 'primary', disabled, ...props }: ButtonProps) {
+export function Button({ children, className = '', loading = false, variant = 'primary', disabled, onClick, ...props }: ButtonProps) {
   return (
     <button
       className={cn(buttonVariants({ variant }), className)}
       disabled={disabled || loading}
+      onClick={(event) => { playSound('click'); onClick?.(event); }}
       {...props}
     >
       {loading && <LoaderCircle className="h-4 w-4 animate-spin" />}
@@ -36,7 +38,7 @@ export function Button({ children, className = '', loading = false, variant = 'p
 }
 
 export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-2xl border border-white/[.075] bg-panel/80 shadow-glow backdrop-blur-xl ${className}`}>{children}</section>;
+  return <section className={`glass-panel rounded-2xl border shadow-glow ${className}`}>{children}</section>;
 }
 
 export function FieldLabel({ children, hint }: { children: ReactNode; hint?: string }) {
@@ -50,13 +52,17 @@ export function FieldLabel({ children, hint }: { children: ReactNode; hint?: str
 
 export function Toasts({ toasts }: { toasts: ToastMessage[] }) {
   const icon = { success: CheckCircle2, error: CircleAlert, info: Info };
-  const colors = { success: 'text-neon border-neon/20', error: 'text-rose-300 border-rose-400/20', info: 'text-violet border-violet/20' };
+  const colors = {
+    success: 'animate-pop text-neon border-neon/25 shadow-[0_0_26px_rgba(0,240,255,.14)]',
+    error: 'animate-shake text-rose-300 border-rose-400/30 shadow-[0_0_26px_rgba(251,113,133,.16)]',
+    info: 'animate-enter text-violet border-violet/20',
+  };
   return (
-    <div className="pointer-events-none fixed right-5 top-5 z-50 flex w-[calc(100%-2.5rem)] max-w-sm flex-col gap-3">
+    <div aria-live="polite" className="pointer-events-none fixed right-5 top-5 z-50 flex w-[calc(100%-2.5rem)] max-w-sm flex-col gap-3">
       {toasts.map((toast) => {
         const Icon = icon[toast.type];
         return (
-          <div key={toast.id} className={`animate-enter flex gap-3 rounded-xl border bg-[#12151d]/95 p-4 shadow-2xl backdrop-blur-xl ${colors[toast.type]}`}>
+          <div key={toast.id} role={toast.type === 'error' ? 'alert' : 'status'} className={`flex gap-3 rounded-xl border bg-[#12151d]/60 p-4 shadow-2xl backdrop-blur-2xl ${colors[toast.type]}`}>
             <Icon className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-white">{toast.title}</p>

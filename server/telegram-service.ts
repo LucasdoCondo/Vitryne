@@ -8,6 +8,7 @@ export interface SendTelegramMessageRequest {
 
 export interface SendTelegramMessageResult {
   sent_at: string;
+  messageId: string;
 }
 
 export function isTelegramErrorResponse(payload: unknown): payload is TelegramErrorResponse {
@@ -48,6 +49,16 @@ export class TelegramApiError extends Error {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Tempo esgotado ao comunicar com o Telegram.')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 let sessionCache: BotSession | null = null;
 
 async function getSession(botToken: string): Promise<BotSession> {
@@ -70,11 +81,14 @@ export async function sendTelegramMessage(request: SendTelegramMessageRequest): 
   const url = `https://api.telegram.org/bot${session.botToken}/sendMessage`;
 
   const post = async (parseMode?: 'Markdown') => {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, ...(parseMode ? { parse_mode: parseMode } : {}) }),
-    });
+    const response = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, ...(parseMode ? { parse_mode: parseMode } : {}) }),
+      }),
+      10_000
+    );
     const payload = (await response.json().catch(() => null)) as unknown;
     return { response, payload };
   };
@@ -96,5 +110,10 @@ export async function sendTelegramMessage(request: SendTelegramMessageRequest): 
     throw new TelegramApiError({ description: 'Resposta inesperada do Telegram.' });
   }
 
-  return { sent_at: new Date().toISOString() };
+  const result = (payload as Record<string, unknown>).result;
+  if (result === null || typeof result !== 'object' || !('message_id' in result) || typeof result.message_id !== 'number') {
+    throw new TelegramApiError({ description: 'Resposta inesperada do Telegram.' });
+  }
+
+  return { sent_at: new Date().toISOString(), messageId: String(result.message_id) };
 }

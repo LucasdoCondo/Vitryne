@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Vitryne Quick Links",
+  "version": "1.0.0",
+  "description": "Acesse os portais oficiais de afiliados e redes sociais pelo Vitryne.",
+  "action": {
+    "default_title": "Vitryne Quick Links",
+    "default_popup": "popup.html"
+  }
+}

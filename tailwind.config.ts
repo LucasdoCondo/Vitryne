@@ -5,14 +5,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: '#08090d',
-        panel: '#101218',
-        line: '#272b36',
-        neon: '#a3ff5d',
-        violet: '#9b8afb',
+        canvas: '#060b19',
+        panel: '#0d1938',
+        line: '#1b2c4d',
+        neon: '#00f0ff',
+        cyan: '#00f0ff',
+        blue: '#2979ff',
+        violet: '#8b7cff',
       },
       boxShadow: {
-        glow: '0 0 0 1px rgba(163,255,93,.12), 0 12px 45px rgba(0,0,0,.28)',
+        glow: '0 0 0 1px rgba(0,229,255,.1), 0 12px 45px rgba(0,0,0,.25)',
       },
     },
   },
